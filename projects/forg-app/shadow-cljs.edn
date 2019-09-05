@@ -1,0 +1,21 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src"]
+
+ :dependencies
+ [[reagent "0.9.0-SNAPSHOT" :exclusions [cljsjs/react]]
+  [cider/cider-nrepl "0.21.1" :scope "test"]
+  [binaryage/devtools "0.9.10" :scope "test"]]
+
+ :builds
+ {:app
+  {:target           :react-native
+   :init-fn          forg.root/init!
+   :output-dir       "target"
+   :output-to        "index.js"
+   :compiler-options {:infer-externs :auto}
+   :devtools         {:autoload      true
+                      :loader-mode   :eval
+                      :preloads      [forg.dev.devtools]
+                      :repl-pprint   true
+                      :async-require true}}}}

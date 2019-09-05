@@ -1,0 +1,11 @@
+{
+  "name": "forg-parser",
+  "version": "0.0.1",
+  "private": true,
+  "devDependencies": {
+    "shadow-cljs": "2.8.52",
+    "source-map-support": "^0.5.13",
+    "ws": "^7.1.2"
+  },
+  "dependencies": {}
+}

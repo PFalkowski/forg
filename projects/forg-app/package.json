@@ -1,0 +1,27 @@
+{
+  "name": "forg",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "ln -f target/index.js index.js && react-native start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "16.9.0",
+    "react-dom": "16.9.0",
+    "react-native": "0.60.5",
+    "shadow-cljs": "^2.8.52"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.5.0",
+    "@babel/runtime": "^7.5.0",
+    "@react-native-community/eslint-config": "^0.0.3",
+    "babel-jest": "^24.1.0",
+    "jest": "^24.1.0",
+    "metro-react-native-babel-preset": "0.54.1",
+    "react-test-renderer": "16.8.6"
+  },
+  "jest": {
+    "preset": "react-native"
+  }
+}
