@@ -14,8 +14,8 @@
 
 (def ^:private ^:dynamic *with-box-annotation* true)
 
-(insta/defparser parser
-  "page = settings* <non-todo-text>* t6*
+(insta/defparser ^:private parser
+  "page = settings* <non-todo-text>* ((h1 / t1) / (h2 / t2) / (h3 / t3) / (h4 / t4) / (h5 / t5) / (h6 / t6) / (h7 / t7))*
    settings = #'#+.*:.*' <EOL>*
    non-todo-text = (<EOL>*) !settings #'(?:(?!\\*)).+'* <EOL>*
    EOL = '\n' | '\r\n' | #'$'
@@ -40,19 +40,44 @@
    deadline = <'DEADLINE:'> <SPC> time <ESPC>*
    scheduled = <'SCHEDULED:'> <SPC> time <ESPC>*
    text = (EOL | #'[^:*/=\n]*' | bold | italic | verbatim | underlined | code | strike-through)*
-   underlined = <'_'> #'[^_]*' <'_'>
-   strike-through = <'+'> #'[^+]*' <'+'>
-   code = <'~'> #'[^~]*' <'~'>
-   italic = <'/'> #'[^/]*' <'/'>
-   bold = <'*'> #'[^*]*' <'*'>
+   underlined = <'_'> !'' #'[^_]*' <'_'>
+   strike-through = <'+'> !'' #'[^+]*' <'+'>
+   code = <'~'> !'' #'[^~]*' <'~'>
+   italic = <'/'> !'' #'[^/]*' <'/'>
+   bold = <'*'> !'' #'[^*]*' <'*'>
    <ESPC> = <SPC> | <EOL>
    verbatim = <'='> #'[^=]*' <'='>
-   inner =  (h6 | text)*
-   sentence = #'[^:*\n]*'
-   h6 = <#'\\*{6}'> <SPC> sentence <EOL>? text* h6*
+   sentence = !status #'[^:*\n]*'
    dates = (deadline | scheduled | visible)*
-   t6 = <#'\\*{6}'> <SPC> status? <SPC> priority? <SPC> action <SPC>? category* <ESPC>* properties-header? (dates / inner)*
-"
+   <header-inner> = <SPC> sentence <EOL>? text*
+   <h1-inner> = header-inner (h2 / t2 / h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h2-inner> = header-inner (h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h3-inner> = header-inner (h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h4-inner> = header-inner (h5 / t5 / h6 / t6 / h7 / t7)*
+   <h5-inner> = header-inner (h6 / t6 / h7 / t7)*
+   <h6-inner> = header-inner (h7 / t7)*
+   h1 = <ESPC>* <#'\\*{1}'> h1-inner
+   h2 = <ESPC>* <#'\\*{2}'> h2-inner
+   h3 = <ESPC>* <#'\\*{3}'> h3-inner
+   h4 = <ESPC>* <#'\\*{4}'> h4-inner
+   h5 = <ESPC>* <#'\\*{5}'> h5-inner
+   h6 = <ESPC>* <#'\\*{6}'> h6-inner
+   h7 = <ESPC>* <#'\\*{7}'> header-inner
+   <task-inner> = <SPC> status <SPC> priority? <SPC>? action <SPC>? category* <ESPC>* properties-header?
+   <t1-inner> = task-inner (dates / (h2 / t2 / h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text))*
+   <t2-inner> = task-inner (dates / (h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text))*
+   <t3-inner> = task-inner (dates / (h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text))*
+   <t4-inner> = task-inner (dates / (h5 / t5 / h6 / t6 / h7 / t7 / text))*
+   <t5-inner> = task-inner (dates / (h6 / t6 / h7 / t7 / text))*
+   <t6-inner> = task-inner (dates / (h7 / t7 / text))*
+   <t7-inner> = task-inner (dates / text)*
+   t1 = <#'\\*{1}'> (t1-inner)*
+   t2 = <#'\\*{2}'> (t2-inner)*
+   t3 = <#'\\*{3}'> (t3-inner)*
+   t4 = <#'\\*{4}'> (t4-inner)*
+   t5 = <#'\\*{5}'> (t5-inner)*
+   t6 = <#'\\*{6}'> (t6-inner)*
+   t7 = <#'\\*{7}'> (t7-inner)* "
   :output-format :enlive)
 
 (defprotocol ^:private IChainable
