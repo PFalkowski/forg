@@ -1,0 +1,5 @@
+{:known-macros [instaparse.core/defparser]
+ :known-namespaces []
+ :known-tags []
+ :ignored-unused-namespaces []
+ :rules {:no-forms-threading false}}
