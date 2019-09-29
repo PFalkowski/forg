@@ -1,6 +1,4 @@
 {
-  "name": "forg",
-  "version": "0.0.1",
   "private": true,
   "scripts": {
     "start": "ln -f target/index.js index.js && react-native start"
@@ -9,7 +7,7 @@
     "react": "16.9.0",
     "react-dom": "16.9.0",
     "react-native": "0.60.5",
-    "shadow-cljs": "^2.8.52"
+    "shadow-cljs": "^2.8.59"
   },
   "devDependencies": {
     "@babel/core": "^7.5.0",

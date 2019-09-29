@@ -6,12 +6,12 @@
      (:require
       [instaparse.core :as insta]))
   (:require
-   [forg.parser.core :as fparser]))
+   [forg.parser :as p]))
 
 (insta/defparser ^:private parser
   ""
   :output-format :enlive)
 
-(def parse (partial fparser/parse* parser))
+(def parse (p/parser-with-normalization parser))
 
 (parse "")
