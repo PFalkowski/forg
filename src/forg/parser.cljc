@@ -1,4 +1,4 @@
-(ns forg.parser.core
+(ns forg.parser
   (:refer-clojure :exclude [Box ->Box])
   #?(:cljs
      (:require
@@ -14,7 +14,7 @@
 
 (def ^:private ^:dynamic *with-box-annotation* true)
 
-(insta/defparser ^:private parser
+(insta/defparser parser
   "page = settings* <non-todo-text>* t6*
    settings = #'#+.*:.*' <EOL>*
    non-todo-text = (<EOL>*) !settings #'(?:(?!\\*)).+'* <EOL>*
@@ -55,7 +55,7 @@
 "
   :output-format :enlive)
 
-(defprotocol IChainable
+(defprotocol ^:private IChainable
   (chain
     [this vf]
     [this f1 f2]
@@ -67,7 +67,7 @@
     [this f1 f2 f3 f4 f5 f6 f7 f8]
     "Passes the object over the sequence of the functions"))
 
-(declare unwrap) ;; To let the box use the unwrap function
+(declare ^:private unwrap) ;; To let the box use the unwrap function
 
 (deftype ^:private Box [x _meta]
   #?@(:clj
@@ -171,7 +171,7 @@
      x
      (->Box x ameta))))
 
-(defn unwrap
+(defn- unwrap
   [x]
   (if (instance? Box x)
     @x
@@ -188,7 +188,7 @@
      (-pr-writer [x writer _]
        (write-all writer (pp-box x)))))
 
-(defmulti tag-normalizer
+(defmulti ^:private tag-normalizer
   "Normalize {:tag something} structures"
   (fn [node] (or (:tag node) :default)))
 
@@ -196,7 +196,7 @@
   [node]
   node)
 
-(defn inner-tag-normalizer
+(defn- inner-tag-normalizer
   [inner]
   (if-not (sequential? inner)
     inner
@@ -223,47 +223,49 @@
                                  (pprint/simple-dispatch @x))
     (pprint/simple-dispatch @x)))
 
-(defn parse*
-  [aparser s]
-  (let [normalize-v-value #(if (= (count %) 1) (first %) (vec %))
-        normalize-meta (fn [from] (reduce (fn [acc [k v]]
-                                           (into acc [[(keyword (name k)) v]]))
-                                         {}
-                                         (dissoc (meta from) :instaparse.gll/start-column :instaparse.gll/end-column)))
-        group-with-normalization-n-meta (fn [node]
-                                          (reduce (fn [acc [k vv]]
-                                                    (into acc [[k (as-> (mapv #(with-meta (dissoc (unwrap %) :tag) (meta %)) vv) m-nval
-                                                                    (if (= (count m-nval) 1)
-                                                                      (box (:content (first m-nval)) (meta (first m-nval)))
-                                                                      (mapv #(box (:content %) (meta %)) m-nval)))]]))
-                                                  {}
-                                                  (group-by (comp :tag unwrap) node)))]
-    (->> (insta/add-line-and-column-info-to-metadata s (aparser s))
-         (walk/postwalk (fn [node]
-                          (as-> (unwrap node) node
-                            (if (sequential? node)
-                              (cond
-                                ;; Like (quote (1 2 3 4))
-                                (and (symbol? (unwrap (first (seq node)))))
-                                (normalize-v-value (unwrap (second node)))
+(defn parser-with-normalization
+  [aparser & [{:keys [autobox?] :or {autobox? true}}]]
+  (fn [s]
+    (let [box (if autobox? box (fn [x _] x))
+          normalize-v-value #(if (= (count %) 1) (first %) (vec %))
+          normalize-meta (fn [from] (reduce (fn [acc [k v]]
+                                             (into acc [[(keyword (name k)) v]]))
+                                           {}
+                                           (dissoc (meta from) :instaparse.gll/start-column :instaparse.gll/end-column)))
+          group-with-normalization-n-meta (fn [node]
+                                            (reduce (fn [acc [k vv]]
+                                                      (into acc [[k (as-> (mapv #(with-meta (dissoc (unwrap %) :tag) (meta %)) vv) m-nval
+                                                                      (if (= (count m-nval) 1)
+                                                                        (box (:content (first m-nval)) (meta (first m-nval)))
+                                                                        (mapv #(box (:content %) (meta %)) m-nval)))]]))
+                                                    {}
+                                                    (group-by (comp :tag unwrap) node)))]
+      (->> (insta/add-line-and-column-info-to-metadata s (aparser s))
+           (walk/postwalk (fn [node]
+                           (as-> (unwrap node) node
+                             (if (sequential? node)
+                               (cond
+                                 ;; Like (quote (1 2 3 4))
+                                 (and (symbol? (unwrap (first (seq node)))))
+                                 (normalize-v-value (unwrap (second node)))
 
-                                ;; Regular vectors, lists [] '()
-                                (not (:content (unwrap (first node))))
-                                (normalize-v-value node)
+                                 ;; Regular vectors, lists [] '()
+                                 (not (:content (unwrap (first node))))
+                                 (normalize-v-value node)
 
-                                ;; [{:content {} :tag a}] | [{:content {} :tag a}, {:content {} :tag b}]
-                                (:content (unwrap (first node)))
-                                (group-with-normalization-n-meta node)
+                                 ;; [{:content {} :tag a}] | [{:content {} :tag a}, {:content {} :tag b}]
+                                 (:content (unwrap (first node)))
+                                 (group-with-normalization-n-meta node)
 
-                                :else node)
-                              (cond
-                                ;; {:status {}} | {:tag :task} etc..
-                                (and (map? node) (meta node))
-                                (box (tag-normalizer node) (normalize-meta node))
+                                 :else node)
+                               (cond
+                                 ;; {:status {}} | {:tag :task} etc..
+                                 (and (map? node) (meta node))
+                                 (box (tag-normalizer node) (normalize-meta node))
 
-                                ;; "  String with trailing whitespaces   "
-                                (string? node)
-                                (s/replace node #" {2,}" "")
+                                 ;; "  String with trailing whitespaces   "
+                                 (string? node)
+                                 (s/replace node #" {2,}" "")
 
-                                :else node)))))
-         (#(-> % unwrap :content)))))
+                                 :else node)))))
+          (#(-> % unwrap :content))))))

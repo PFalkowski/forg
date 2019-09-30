@@ -24,6 +24,7 @@ project.xcworkspace
 target
 .shadow-cljs
 index.js
+.nrepl-port
 
 # Android/IntelliJ
 #
