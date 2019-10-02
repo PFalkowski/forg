@@ -12,10 +12,8 @@
    [clojure.string :as s]
    [clojure.walk :as walk]))
 
-(def ^:private ^:dynamic *with-box-annotation* true)
-
 (insta/defparser parser
-  "page = settings* <non-todo-text>* t6*
+  "page = settings* <non-todo-text>* ((h1 / t1) / (h2 / t2) / (h3 / t3) / (h4 / t4) / (h5 / t5) / (h6 / t6) / (h7 / t7))*
    settings = #'#+.*:.*' <EOL>*
    non-todo-text = (<EOL>*) !settings #'(?:(?!\\*)).+'* <EOL>*
    EOL = '\n' | '\r\n' | #'$'
@@ -33,239 +31,95 @@
    value = time / #'.*'
    properties = (name <SPC> value <EOL>?)
    <properties-header> = <':PROPERTIES:'> <EOL> properties* <':END:'>
-   action = #'[^: \n]*(?: *[^: \n]*)*'
+   action = (italic / bold / verbatim / #'[^: \n]*(?: *[^: \n]*)*')
    category = !SPC <':'>? #'[a-zA-Z]*' <':'>
    scheduled = <'SCHEDULED:'> <SPC> time <EOL>?
    visible = time
    deadline = <'DEADLINE:'> <SPC> time <ESPC>*
    scheduled = <'SCHEDULED:'> <SPC> time <ESPC>*
-   text = (EOL | #'[^:*/=\n]*' | bold | italic | verbatim | underlined | code | strike-through)*
-   underlined = <'_'> #'[^_]*' <'_'>
-   strike-through = <'+'> #'[^+]*' <'+'>
-   code = <'~'> #'[^~]*' <'~'>
-   italic = <'/'> #'[^/]*' <'/'>
-   bold = <'*'> #'[^*]*' <'*'>
-   <ESPC> = <SPC> | <EOL>
+   text = #'[^:*/_=\n]*'
+   text-section = !ESPC (ESPC / bold / italic / verbatim / underlined / code / strike-through / text)*
+   underlined = <'_'> !'_' #'[^_]*' <'_'>
+   strike-through = <'+'> !'+' #'[^+]*' <'+'>
+   code = <'~'> !'~' #'[^~]*' <'~'>
+   italic = <'/'> !'/' #'[^/]*' <'/'>
+   bold = <'*'> !'*' #'[^*]*' <'*'>
    verbatim = <'='> #'[^=]*' <'='>
-   inner =  (h6 | text)*
-   sentence = #'[^:*\n]*'
-   h6 = <#'\\*{6}'> <SPC> sentence <EOL>? text* h6*
+   <ESPC> = <SPC> | EOL
+   sentence = !status (italic / bold / verbatim / #'[^:*\n]*')
    dates = (deadline | scheduled | visible)*
-   t6 = <#'\\*{6}'> <SPC> status? <SPC> priority? <SPC> action <SPC>? category* <ESPC>* properties-header? (dates / inner)*
-"
+   <header-inner> = <SPC> sentence <ESPC>* text-section?
+   <h1-inner> = (h2 / t2 / h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h2-inner> = (h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h3-inner> = (h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7)*
+   <h4-inner> = (h5 / t5 / h6 / t6 / h7 / t7)*
+   <h5-inner> = (h6 / t6 / h7 / t7)*
+   <h6-inner> = (h7 / t7)*
+   h1 = <#'\\*{1}'> header-inner h1-inner
+   h2 = <#'\\*{2}'> header-inner h2-inner
+   h3 = <#'\\*{3}'> header-inner h3-inner
+   h4 = <#'\\*{4}'> header-inner h4-inner
+   h5 = <#'\\*{5}'> header-inner h5-inner
+   h6 = <#'\\*{6}'> header-inner h6-inner
+   h7 = <#'\\*{7}'> header-inner
+   <task-inner> = <SPC> status <SPC> (priority <SPC>)? action <SPC>? category* <ESPC>* properties-header? <ESPC>* dates? <ESPC>*
+   <t1-inner> = task-inner (h2 / t2 / h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text-section)*
+   <t2-inner> = task-inner (h3 / t3 / h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text-section)*
+   <t3-inner> = task-inner (h4 / t4 / h5 / t5 / h6 / t6 / h7 / t7 / text-section)*
+   <t4-inner> = task-inner (h5 / t5 / h6 / t6 / h7 / t7 / text-section)*
+   <t5-inner> = task-inner (h6 / t6 / h7 / t7 / text-section)*
+   <t6-inner> = task-inner (h7 / t7 / text-section)*
+   <t7-inner> = task-inner text-section*
+   t1 = <#'\\*{1}'> !'*' t1-inner
+   t2 = <#'\\*{2}'> !'*' t2-inner
+   t3 = <#'\\*{3}'> !'*' t3-inner
+   t4 = <#'\\*{4}'> !'*' t4-inner
+   t5 = <#'\\*{5}'> !'*' t5-inner
+   t6 = <#'\\*{6}'> !'*' t6-inner
+   t7 = <#'\\*{7}'> !'*' t7-inner
+  "
   :output-format :enlive)
 
-(defprotocol ^:private IChainable
-  (chain
-    [this vf]
-    [this f1 f2]
-    [this f1 f2 f3]
-    [this f1 f2 f3 f4]
-    [this f1 f2 f3 f4 f5]
-    [this f1 f2 f3 f4 f5 f6]
-    [this f1 f2 f3 f4 f5 f6 f7]
-    [this f1 f2 f3 f4 f5 f6 f7 f8]
-    "Passes the object over the sequence of the functions"))
+(defn- normalize-v-value
+  [xs]
+  (if (= (count xs) 1) (first xs) (vec xs)))
 
-(declare ^:private unwrap) ;; To let the box use the unwrap function
-
-(deftype ^:private Box [x _meta]
-  #?@(:clj
-      [clojure.lang.IObj
-       (meta [_] _meta)
-       (withMeta [nx nm] (Box. @nx nm))]
-      :cljs
-      [IMeta
-       (-meta [_] _meta)
-       IWithMeta
-       (-with-meta [nx nm] (Box. @nx nm))])
-
-  #?@(:clj
-      [clojure.lang.IDeref
-       (deref [this] x)]
-      :cljs
-      [IDeref
-       (-deref [_] x)])
-
-  #?@(:clj
-      [clojure.lang.IPersistentCollection
-       (empty [this]
-               (clojure.core/empty x))])
-
-  #?@(:clj
-      [clojure.lang.IPersistentMap
-       (containsKey [this k]
-                    (clojure.core/contains? x k))
-       (assoc [this k v]
-              (Box. (clojure.core/assoc x k v) _meta))
-       (without [this k]
-                (Box. (clojure.core/dissoc x k) _meta))]
-      :cljs
-      [IAssociative
-       (-contains-key? [this k] (contains? x k))
-       (-assoc [this k v] (Box. (assoc x k v) _meta))
-       IMap
-       (-dissoc [this k] (Box. (dissoc x k) _meta))])
-
-  #?@(:clj
-      [java.lang.Object
-       (toString [this]
-                 (str x))
-       (equals [this o]
-               (= x (unwrap o)))]
-      :cljs
-      [IEquiv
-       (-equiv [this o]
-               (= x (unwrap o)))])
-  #?@(:clj
-      [clojure.lang.Seqable
-       (seq [_] (seq x))]),
-
-  #?@(:clj
-      [clojure.lang.ILookup
-       (valAt [this k]
-              (get x k))
-       (valAt [this k defval]
-              (get x k defval))]
-     :cljs
-     [ILookup
-      (-lookup [this k]
-               (get x k))
-      (-lookup [this k defval]
-               (get x k defval))])
-
-  #?@(:clj
-      [clojure.core.protocols.CollReduce
-       (coll-reduce [this f]
-                    (clojure.core.protocols/coll-reduce x f))
-       (coll-reduce [this f xval]
-                    (clojure.core.protocols/coll-reduce x f xval))])
-
-  IChainable
-  (chain [this vf]
-    (as-> (if (sequential? vf) vf (vector vf)) vf
-      (reduce (fn [val f] (Box. (f @val) (meta val)))
-              (Box. ((first vf) x) _meta)
-              (rest vf))))
-  (chain [this f1 f2]
-    (chain this [f1 f2]))
-  (chain [this f1 f2 f3]
-    (chain this [f1 f2 f3])) (chain [this f1 f2 f3 f4]
-    (chain this [f1 f2 f3 f4]))
-  (chain [this f1 f2 f3 f4 f5]
-    (chain this [f1 f2 f3 f4 f5]))
-  (chain [this f1 f2 f3 f4 f5 f6]
-    (chain this [f1 f2 f3 f4 f5 f6]))
-  (chain [this f1 f2 f3 f4 f5 f6 f7]
-    (chain this [f1 f2 f3 f4 f5 f6 f7]))
-  (chain [this f1 f2 f3 f4 f5 f6 f7 f8]
-    (chain this [f1 f2 f3 f4 f5 f6 f7 f8])))
-
-(defn box
-  ([x]
-   (if (instance? Box x)
-     x
-     (box x (or (meta x) {}))))
-  ([x ameta]
-   (if (instance? Box x)
-     x
-     (->Box x ameta))))
-
-(defn- unwrap
+(defn- wrap-root-node
   [x]
-  (if (instance? Box x)
-    @x
-    x))
-
-(defn- pp-box
-  [x]
-  (cond-> (with-out-str (pprint/pprint @x))
-    (not *print-readably*) (-> (s/replace "\n" "")
-                               (s/replace #"(?:(?: ){2,}|\\t*)" " "))))
-#?(:cljs
-   (extend-protocol IPrintWithWriter
-     Box
-     (-pr-writer [x writer _]
-       (write-all writer (pp-box x)))))
-
-(defmulti ^:private tag-normalizer
-  "Normalize {:tag something} structures"
-  (fn [node] (or (:tag node) :default)))
-
-(defmethod tag-normalizer :default
-  [node]
-  node)
-
-(defn- inner-tag-normalizer
-  [inner]
-  (if-not (sequential? inner)
-    inner
-    (-> (reduce (fn [acc [k v]]
-                  (assoc acc k (vec (flatten (map vals v)))))
-                {}
-                (group-by ffirst inner))
-        (dissoc nil))))
-
-(defmethod tag-normalizer :task
-  [node]
-  (cond-> node
-    (get-in node [:content :inner] nil) (update-in [:content :inner] inner-tag-normalizer)))
-
-#?(:clj
-   (defmethod print-method Box
-     [x ^java.io.Writer w]
-     (.write w (pp-box x))))
-
-(defmethod pprint/simple-dispatch Box
-  [x]
-  (if *with-box-annotation*
-    (pprint/pprint-logical-block :prefix "#Box " :suffix ""
-                                 (pprint/simple-dispatch @x))
-    (pprint/simple-dispatch @x)))
+  (when-not (nil? x)
+    (if (sequential? x)
+      x
+      (vector x))))
 
 (defn parser-with-normalization
-  [aparser & [{:keys [autobox?] :or {autobox? true}}]]
+  [aparser]
   (fn [s]
-    (let [box (if autobox? box (fn [x _] x))
-          normalize-v-value #(if (= (count %) 1) (first %) (vec %))
-          normalize-meta (fn [from] (reduce (fn [acc [k v]]
-                                             (into acc [[(keyword (name k)) v]]))
-                                           {}
-                                           (dissoc (meta from) :instaparse.gll/start-column :instaparse.gll/end-column)))
-          group-with-normalization-n-meta (fn [node]
-                                            (reduce (fn [acc [k vv]]
-                                                      (into acc [[k (as-> (mapv #(with-meta (dissoc (unwrap %) :tag) (meta %)) vv) m-nval
-                                                                      (if (= (count m-nval) 1)
-                                                                        (box (:content (first m-nval)) (meta (first m-nval)))
-                                                                        (mapv #(box (:content %) (meta %)) m-nval)))]]))
-                                                    {}
-                                                    (group-by (comp :tag unwrap) node)))]
-      (->> (insta/add-line-and-column-info-to-metadata s (aparser s))
-           (walk/postwalk (fn [node]
-                           (as-> (unwrap node) node
-                             (if (sequential? node)
-                               (cond
-                                 ;; Like (quote (1 2 3 4))
-                                 (and (symbol? (unwrap (first (seq node)))))
-                                 (normalize-v-value (unwrap (second node)))
+    (->> (insta/add-line-and-column-info-to-metadata s (aparser s))
+         (walk/postwalk (fn [node]
+                          (if (sequential? node)
+                            (cond
+                              ;; Like (quote (1 2 3 4))
+                              (and (symbol? (first (seq node))))
+                              (normalize-v-value (second node))
 
-                                 ;; Regular vectors, lists [] '()
-                                 (not (:content (unwrap (first node))))
-                                 (normalize-v-value node)
+                              (= :content (first node))
+                              (if (sequential? (second node))
+                                [:content (vec (second node))]
+                                node)
 
-                                 ;; [{:content {} :tag a}] | [{:content {} :tag a}, {:content {} :tag b}]
-                                 (:content (unwrap (first node)))
-                                 (group-with-normalization-n-meta node)
+                              ;; Regular vectors, lists [] '()
+                              (not (:content (first node)))
+                              (normalize-v-value node)
 
-                                 :else node)
-                               (cond
-                                 ;; {:status {}} | {:tag :task} etc..
-                                 (and (map? node) (meta node))
-                                 (box (tag-normalizer node) (normalize-meta node))
+                              :else node)
+                            (cond
+                              ;; "  String with trailing whitespaces   "
+                              (string? node)
+                              (s/replace node #" {2,}" "")
 
-                                 ;; "  String with trailing whitespaces   "
-                                 (string? node)
-                                 (s/replace node #" {2,}" "")
+                              (and (map? node) (:tag node))
+                              (into {} [[(:tag node) (:content node)]])
 
-                                 :else node)))))
-          (#(-> % unwrap :content))))))
+                              :else node))))
+         :page
+         wrap-root-node)))

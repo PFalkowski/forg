@@ -8,10 +8,10 @@
   (:require
    [forg.parser :as p]))
 
-(insta/defparser ^:private parser
-  ""
+(insta/defparser parser
+  "page = ''"
   :output-format :enlive)
 
-(def parse (p/parser-with-normalization parser))
+(def ^:private parse (p/parser-with-normalization parser))
 
 (parse "")
